@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "dev": "prisma generate && next dev",
+    "dev": "prisma generate && next dev -p 3004",
     "build": "contentlayer build && prisma generate && prisma db push && next build",
     "start": "next start",
     "lint": "next lint"
@@ -43,14 +43,16 @@
     "contentlayer": "^0.3.4",
     "date-fns": "^3.0.6",
     "fs": "^0.0.1-security",
+    "kbar": "^0.1.0-beta.45",
     "lucide-react": "^0.292.0",
     "mdast-util-toc": "^7.0.0",
-    "next": "^14.1.0",
+    "next": "^13.5.6",
     "next-auth": "^4.24.6",
     "next-contentlayer": "^0.3.4",
     "next-themes": "^0.2.1",
     "openai": "^4.20.0",
     "openai-edge": "^1.2.2",
+    "puppeteer": "^22.4.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.48.2",

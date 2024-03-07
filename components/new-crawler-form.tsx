@@ -1,188 +1,148 @@
 "use client"
-
-import * as React from "react"
-import { useRouter } from "next/navigation"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import * as z from "zod"
-
-import { cn } from "@/lib/utils"
-import { crawlerSchema } from "@/lib/validations/crawler"
-import { buttonVariants } from "@/components/ui/button"
-import {
-    Card,
-    CardContent,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card"
-import { Form, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { toast } from "@/components/ui/use-toast"
-import { Icons } from "@/components/icons"
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { cn } from "@/lib/utils";
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { toast } from "@/components/ui/use-toast";
+import { Icons } from "@/components/icons";
 
 
-type FormData = z.infer<typeof crawlerSchema>
+// Define the schema based on your GPT Crawler's config schema
+const crawlerConfigSchema = z.object({
+  url: z.string(),
+  match: z.string().or(z.array(z.string())),
+  exclude: z.string().or(z.array(z.string())).optional(),
+  selector: z.string().optional().default("body"),
+  maxPagesToCrawl: z.number().int().positive().optional().default(50),
+  outputFileName: z.string().optional().default("output.json"),
+  // Add other fields as necessary
+});
 
-export function NewCrawlerForm({ className, ...props }: React.HTMLAttributes<HTMLFormElement>) {
-    const router = useRouter()
-    const form = useForm<FormData>({
-        resolver: zodResolver(crawlerSchema),
-        defaultValues: {
-            selector: "body"
-        }
-    })
-    const [isSaving, setIsSaving] = React.useState<boolean>(false)
+type FormData = z.infer<typeof crawlerConfigSchema>;
+
+export function NewCrawlerForm({ className, ...props }: {
+    className?: string;
+}) {
+
+  const router = useRouter();
+  const form = useForm<FormData>({
+    resolver: zodResolver(crawlerConfigSchema),
+    defaultValues: {
+      url: '',
+      match: '',
+      exclude: '',
+      selector: 'body',
+      maxPagesToCrawl: 50,
+      outputFileName: 'output.json',
+    }
+  });
+  const [isSaving, setIsSaving] = useState<boolean>(false);
 
     async function onSubmit(data: FormData) {
-        setIsSaving(true)
+        setIsSaving(true);
+        try {
+            const response = await fetch(`/api/crawlers`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(data),
+            });
 
-        const response = await fetch(`/api/crawlers`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                name: data.name,
-                crawlUrl: data.crawlUrl,
-                selector: data.selector,
-                urlMatch: data.urlMatch
-            }),
-        })
-
-        setIsSaving(false)
-
-        if (!response?.ok) {
-            if (response.status === 402) {
-                return toast({
-                    title: "Crawler limit reached.",
-                    description: "Please upgrade to the a higher plan.",
-                    variant: "destructive",
-                })
+            if (!response.ok) {
+                const errorData = await response.json();
+                const error = new Error(`HTTP error! status: ${response.status}, Message: ${errorData.message}`);
+                throw error;
             }
 
-            return toast({
+            const json = await response.json();
+            toast({
+                description: "Your crawler configuration has been saved.",
+            });
+            router.push(`/dashboard/crawlers/${json.id}/results`);
+        } catch (error: any) {
+            console.error("Submission error:", error);
+            toast({
                 title: "Something went wrong.",
-                description: "Your crawler was not saved. Please try again.",
+                description: error.message || "Your crawler configuration was not saved. Please try again.",
                 variant: "destructive",
-            })
+            });
+        } finally {
+            setIsSaving(false);
         }
-
-        toast({
-            description: "Your crawler has been saved.",
-        })
-        const json = await response.json()
-        router.push(`/dashboard/crawlers/${json.id}/crawl`)
     }
 
+
     return (
-        <Form {...form}>
-            <form
-                className={cn(className)}
-                onSubmit={form.handleSubmit(onSubmit)}
-                {...props}
+      <Form {...form}>
+        <form className={cn(className)} onSubmit={form.handleSubmit(onSubmit)} {...props}>
+          {/* URL Input Field */}
+          <FormField
+            control={form.control}
+            name="url"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel htmlFor="url">Crawl URL</FormLabel>
+                <Input id="url" {...field} />
+                <FormDescription>URL to start the crawl from.</FormDescription>
+              </FormItem>
+            )}
+          />
+          {/* Match Input Field */}
+          <FormField
+            control={form.control}
+            name="match"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel htmlFor="match">URL Match</FormLabel>
+                <Input id="match" {...field} />
+                <FormDescription>URL patterns to match during crawling.</FormDescription>
+              </FormItem>
+            )}
+          />
+          {/* Exclude Input Field */}
+          <FormField
+            control={form.control}
+            name="exclude"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel htmlFor="exclude">Exclude URL Patterns</FormLabel>
+                <Input id="exclude" {...field} />
+                <FormDescription>URL patterns to exclude during crawling.</FormDescription>
+              </FormItem>
+            )}
+          />
+          {/* Selector Input Field */}
+          <FormField
+            control={form.control}
+            name="selector"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel htmlFor="selector">Selector</FormLabel>
+                <Input id="selector" {...field} />
+                <FormDescription>DOM selector for content extraction.</FormDescription>
+              </FormItem>
+            )}
+          />
+          {/* Additional fields as necessary */}
+          <CardFooter>
+            <button
+              type="submit"
+              className={cn(buttonVariants(), className)}
+              disabled={isSaving}
             >
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Create new crawler</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel htmlFor="name">
-                                        Display Name
-                                    </FormLabel>
-                                    <Input
-                                        id="name"
-                                        onChange={field.onChange}
-                                        size={32}
-                                    />
-                                    <FormDescription>
-                                        The name that will be displayed in the dashboard
-                                    </FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="crawlUrl"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel htmlFor="crawlUrl">
-                                        Crawling URL
-                                    </FormLabel >
-                                    <Input
-                                        onChange={field.onChange}
-                                        id="crawlUrl"
-                                    />
-                                    <FormDescription>
-                                        The URL that we will start the crawling on.
-                                    </FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="urlMatch"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel htmlFor="urlmatch">
-                                        URL Match
-                                    </FormLabel>
-                                    <Input
-                                        id="urlmatch"
-                                        onChange={field.onChange}
-                                    />
-                                    <FormDescription>
-                                        When we crawl we will make sure to always match with this string.
-                                        If you want to crawl everything put the same value as the Crawling URL.
-                                    </FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="selector"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel htmlFor="selector">
-                                        Selector
-                                    </FormLabel>
-                                    <Input
-                                        id="selector"
-                                        onChange={field.onChange}
-                                        value={field.value}
-                                    />
-                                    <FormDescription>
-                                        The selector will be used by the query selector to get the content from a specific part of the website.
-                                        You can test your query selector when you open your website with F12 in the console and do this: document.querySelector(&quot;[id=&apos;root&apos;]&quot;).
-                                        If you want to extract all the content simply use: &apos;body&apos;
-                                    </FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </CardContent>
-                    <CardFooter>
-                        <button
-                            type="submit"
-                            className={cn(buttonVariants(), className)}
-                            disabled={isSaving}
-                        >
-                            {isSaving && (
-                                <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
-                            )}
-                            <span>Create</span>
-                        </button>
-                    </CardFooter>
-                </Card>
-            </form>
-        </Form >
-    )
+              {isSaving ? <Icons.spinner className="mr-2 h-4 w-4 animate-spin" /> : null}
+              <span>Start Crawling</span>
+            </button>
+          </CardFooter>
+        </form>
+      </Form>
+    );
+  
 }

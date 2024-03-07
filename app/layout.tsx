@@ -11,6 +11,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { siteConfig } from "@/config/site"
 import Chatbot from '@/components/chatbot';
 
+
 const fontSans = FontSans({
   subsets: ["latin"],
   variable: "--font-sans",
@@ -53,6 +54,7 @@ export default async function RootLayout({
       <head>
         <Chatbot />
       </head>
+
       <body
         id='root'
         className={cn(
@@ -68,6 +70,7 @@ export default async function RootLayout({
             process.env.VERCEL_ENV === "production" ? <Analytics /> : <></>
           }
         </ThemeProvider>
+
       </body>
     </html>
   );
