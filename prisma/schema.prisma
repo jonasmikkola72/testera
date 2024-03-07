@@ -1,0 +1,166 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model OpenAIConfig {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  globalAPIKey String
+  createdAt    DateTime @default(now()) @map(name: "created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ChatbotFiles {
+  id         String   @id @default(cuid())
+  assignedAt DateTime @default(now())
+
+  chatbotId String
+  chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  fileId String
+  file   File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+}
+
+model Chatbot {
+  id                     String   @id @default(cuid())
+  name                   String
+  userId                 String
+  openaiId               String   @unique
+  createdAt              DateTime @default(now()) @map(name: "created_at")
+  openaiKey              String
+  modelId                String
+  prompt                 String
+  welcomeMessage         String
+  
+  displayBranding        Boolean  @default(true)
+  chatTitle              String   @default("Chat with us")
+  chatMessagePlaceHolder String   @default("Type a message...")
+
+  user         User           @relation(fields: [userId], references: [id])
+  model        ChatbotModel   @relation(fields: [modelId], references: [id])
+  ChatbotFiles ChatbotFiles[]
+
+  @@map(name: "chatbots")
+}
+
+model File {
+  id           String   @id @default(cuid())
+  userId       String
+  name         String
+  openAIFileId String   @unique
+  createdAt    DateTime @default(now()) @map(name: "created_at")
+  blobUrl      String
+
+  crawlerId String?
+  crawler   Crawler? @relation(fields: [crawlerId], references: [id], onDelete: Cascade)
+
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ChatbotFiles ChatbotFiles[]
+
+  @@map(name: "files")
+}
+
+model ChatbotModel {
+  id      String    @id @default(cuid())
+  name    String
+  Chatbot Chatbot[]
+
+  @@map(name: "models")
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  message   String
+  createdAt DateTime @default(now()) @map(name: "created_at")
+  response  String
+
+  from String @default("unknown")
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  chatbotId String
+
+  @@map(name: "messages")
+}
+
+model Crawler {
+  id              String   @id @default(cuid())
+  name            String
+  createdAt       DateTime @default(now()) @map(name: "created_at")
+  userId          String
+  crawlUrl        String
+  urlMatch        String
+  selector        String
+  maxPagesToCrawl Int
+
+  user User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  File File[]
+
+  @@map(name: "crawlers")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now()) @map(name: "created_at")
+  hashedPassword String?
+
+  accounts     Account[]
+  sessions     Session[]
+  Chatbot      Chatbot[]
+  Crawler      Crawler[]
+  OpenAIConfig OpenAIConfig[]
+  File         File[]
+
+  stripeCustomerId       String?   @unique @map(name: "stripe_customer_id")
+  stripeSubscriptionId   String?   @unique @map(name: "stripe_subscription_id")
+  stripePriceId          String?   @map(name: "stripe_price_id")
+  stripeCurrentPeriodEnd DateTime? @map(name: "stripe_current_period_end")
+  Message                Message[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
